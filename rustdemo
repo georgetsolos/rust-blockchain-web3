@@ -1,0 +1,168 @@
+// Simple blockchain implementation in Rust
+use std::time::{SystemTime, UNIX_EPOCH};
+use sha2::{Sha256, Digest};
+
+#[derive(Debug, Clone)]
+struct Block {
+    index: u64,
+    timestamp: u128,
+    data: String,
+    previous_hash: String,
+    hash: String,
+    nonce: u64,
+}
+
+#[derive(Debug)]
+struct Blockchain {
+    chain: Vec<Block>,
+    difficulty: usize,
+}
+
+impl Block {
+    fn new(index: u64, data: String, previous_hash: String) -> Self {
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_millis();
+        
+        let mut block = Block {
+            index,
+            timestamp,
+            data,
+            previous_hash,
+            hash: String::new(),
+            nonce: 0,
+        };
+        
+        block.hash = block.calculate_hash();
+        block
+    }
+    
+    fn calculate_hash(&self) -> String {
+        let input = format!(
+            "{}{}{}{}{}",
+            self.index, self.timestamp, self.data, self.previous_hash, self.nonce
+        );
+        
+        let mut hasher = Sha256::new();
+        hasher.update(input.as_bytes());
+        format!("{:x}", hasher.finalize())
+    }
+    
+    fn mine_block(&mut self, difficulty: usize) {
+        let target = "0".repeat(difficulty);
+        
+        while &self.hash[..difficulty] != target {
+            self.nonce += 1;
+            self.hash = self.calculate_hash();
+        }
+        
+        println!("Block mined! Hash: {}", self.hash);
+    }
+}
+
+impl Blockchain {
+    fn new() -> Self {
+        let genesis_block = Block::new(
+            0, 
+            "Genesis Block".to_string(), 
+            String::from("0")
+        );
+        
+        Blockchain {
+            chain: vec![genesis_block],
+            difficulty: 4,
+        }
+    }
+    
+    fn add_block(&mut self, data: String) {
+        let previous_hash = self.chain.last().unwrap().hash.clone();
+        let mut new_block = Block::new(
+            self.chain.len() as u64,
+            data,
+            previous_hash,
+        );
+        
+        new_block.mine_block(self.difficulty);
+        self.chain.push(new_block);
+    }
+    
+    fn is_valid(&self) -> bool {
+        for i in 1..self.chain.len() {
+            let current = &self.chain[i];
+            let previous = &self.chain[i - 1];
+            
+            // Verify hash
+            if current.hash != current.calculate_hash() {
+                return false;
+            }
+            
+            // Verify chain linkage
+            if current.previous_hash != previous.hash {
+                return false;
+            }
+        }
+        true
+    }
+}
+
+// Web3 transaction simulation
+#[derive(Debug)]
+struct Transaction {
+    from: String,
+    to: String,
+    amount: f64,
+    signature: String,
+}
+
+impl Transaction {
+    fn new(from: &str, to: &str, amount: f64) -> Self {
+        let signature = format!("sig_{}_{}_{}", from, to, amount);
+        Transaction {
+            from: from.to_string(),
+            to: to.to_string(),
+            amount,
+            signature,
+        }
+    }
+    
+    fn verify(&self) -> bool {
+        // Simple verification (would be cryptographic in production)
+        let expected_sig = format!("sig_{}_{}_{}", self.from, self.to, self.amount);
+        self.signature == expected_sig
+    }
+}
+
+fn main() {
+    println!("=== Rust Blockchain + Web3 Demo ===\n");
+    
+    // Initialize blockchain
+    let mut blockchain = Blockchain::new();
+    println!("Genesis Block created: {:?}\n", blockchain.chain[0]);
+    
+    // Add blocks with transactions
+    let tx1 = Transaction::new("Alice", "Bob", 50.0);
+    let tx2 = Transaction::new("Bob", "Charlie", 30.0);
+    
+    blockchain.add_block(format!("Transactions: {:?}, {:?}", tx1, tx2));
+    blockchain.add_block("Smart Contract Execution".to_string());
+    
+    // Verify blockchain
+    println!("\nBlockchain valid? {}", blockchain.is_valid());
+    
+    // Display chain
+    for block in &blockchain.chain {
+        println!("\nBlock #{}", block.index);
+        println!("  Timestamp: {}", block.timestamp);
+        println!("  Data: {}", block.data);
+        println!("  Hash: {}", block.hash);
+        println!("  Previous: {}", block.previous_hash);
+        println!("  Nonce: {}", block.nonce);
+    }
+    
+    // Smart contract simulation
+    let contract_address = "0x1234567890abcdef";
+    let balance = 1000.0;
+    println!("\nSmart Contract Address: {}", contract_address);
+    println!("Contract Balance: {} tokens", balance);
+}
